@@ -31,7 +31,7 @@ app_ui = ui.page_sidebar(
         ui.input_select(
             "emd_filter",
             "읍면동 선택:",
-            choices={"": "읍면동을 선택해주세요"} | {v: v for v in eupmyeondong_list},
+            choices={"": "전체"} | {v: v for v in eupmyeondong_list},
             selected=""
         ),
         ui.input_checkbox_group("theme_filter", "관광지 테마:", choices=thema_list, selected=thema_list),
