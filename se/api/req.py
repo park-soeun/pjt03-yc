@@ -1,24 +1,51 @@
 import requests
-from urllib.parse import urlencode, quote_plus
+from urllib.parse import quote_plus
+import xml.etree.ElementTree as ET
 
-# 인증키 (URL 인코딩 하지 않은 상태로 붙여주세요)
-service_key = "xRmhnrA%2BuKDxdqIjJLpprMj6n7fOpvL3Kqi9ssAcDI3gnBQm6RusMSVVedHHRIsFAAFFELJg1M7SK6%2FwZKecNQ%3D%3D"
+# 필수 파라미터만 사용
+sido = quote_plus("경상북도")
+gungu = quote_plus("영천시")
+ym = "202401"
 
-# 파라미터
-params = {
-    'serviceKey': service_key,
-    'YM': '201201',                # 필수
-    'SIDO': '부산광역시',           # 선택
-    'GUNGU': '해운대구',           # 선택
-    'RES_NM': '부산시립미술관'      # 선택
-}
+service_key = '0OhBU7ZCGIobDVKDeBJDpmDRqK3IRNF6jlf%2FJB2diFAf%2FfR2czYO9A4UTGcsOwppV6W2HVUeho%2FFPwXoL6DwqA%3D%3D'
 
-# URL 구성
-base_url = "http://openapi.tour.go.kr/openapi/service/TourismResourceStatsService/getPchrgTrrsrtVisitorList"
-response = requests.get(base_url, params=params)
+url = (
+    f"http://openapi.tour.go.kr/openapi/service/TourismResourceStatsService/getPchrgTrrsrtVisitorList"
+    f"?serviceKey={service_key}&YM={ym}&SIDO={sido}&GUNGU={gungu}"
+)
 
-# 응답 처리
-if response.status_code == 200:
-    print(response.text)  # XML 형태의 응답이 출력됩니다
-else:
-    print(f"에러 발생: {response.status_code}")
+response = requests.get(url)
+
+
+# XML 파싱
+root = ET.fromstring(response.content)
+
+# item 단위로 반복
+for item in root.iter("item"):
+    res_nm = item.findtext("resNm")         # 관광지명
+    forgn_cnt = item.findtext("forgnVstrCnt")  # 외국인 수
+    natl_cnt = item.findtext("natlVstrCnt")    # 내국인 수
+    print(f"[{res_nm}] 내국인: {natl_cnt}, 외국인: {forgn_cnt}")
+
+def safe_int(text):
+    return int(text) if text and text.isdigit() else 0
+
+import pandas as pd
+data = []
+for item in root.iter("item"):
+    res_nm = item.findtext("resNm")
+    natl = safe_int(item.findtext("natlVstrCnt"))
+    forgn = safe_int(item.findtext("forgnVstrCnt"))
+
+    data.append({
+        "관광지명": res_nm,
+        "내국인": natl,
+        "외국인": forgn,
+        "총합": natl + forgn,
+    })
+
+df = pd.DataFrame(data)
+print(df.head())
+
+
+df
