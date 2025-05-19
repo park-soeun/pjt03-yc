@@ -13,7 +13,12 @@ thema_list = sorted(location_df["CL_NM"].unique())
 
 app_ui = ui.page_sidebar(
     ui.sidebar(
-        ui.input_select("emd_filter", "읍면동 선택:", choices=["전체"] + eupmyeondong_list, selected="전체"),
+        ui.input_select(
+            "emd_filter",
+            "읍면동 선택:",
+            choices={"": "읍면동을 선택해주세요"} | {v: v for v in eupmyeondong_list},
+            selected=""
+        ),
         ui.input_checkbox_group("theme_filter", "관광지 테마:", choices=thema_list, selected=thema_list),
     ),
     ui.output_ui("map")
@@ -23,7 +28,7 @@ def server(input, output, session):
     @reactive.calc
     def filtered_df():
         df = location_df.copy()
-        if input.emd_filter() != "전체":
+        if input.emd_filter() != "":
             df = df[df["LEGALDONG_NM"] == input.emd_filter()]
         df = df[df["CL_NM"].isin(input.theme_filter())]
         return df
