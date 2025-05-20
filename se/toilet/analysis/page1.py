@@ -24,6 +24,10 @@ toilet_by_region.columns = ['시군구명', '화장실수']
 # 정렬
 df_plot = toilet_by_region.sort_values('화장실수', ascending=False)
 
+
+
+
+# --------------------------------------------------
 # 색상 컬럼 만들기
 df_plot['색상'] = df_plot['시군구명'].apply(
     lambda x: '#1f77b4' if x == '영천시' else '#cccccc'
@@ -507,3 +511,4 @@ yc_df['관리기관명'].unique()
 
 
 kb_df.info()
+

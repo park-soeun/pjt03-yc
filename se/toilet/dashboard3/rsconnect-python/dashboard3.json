@@ -1,0 +1,12 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "C:\\Users\\user\\Documents\\pjt\\pjt03-yc\\pjt03-yc\\se\\toilet\\dashboard3",
+        "app_url": "https://nueos.shinyapps.io/yc-toilet/",
+        "app_id": 14786863,
+        "app_guid": null,
+        "title": "yc-toilet",
+        "app_mode": "python-shiny",
+        "app_store_version": 1
+    }
+}

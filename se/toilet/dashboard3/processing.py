@@ -64,7 +64,7 @@ def get_toilet_per_10k(toilet_df, pop_df):
     return merged.sort_values("인구1만명당_화장실수", ascending=False)
 
 def load_area_data():
-    df = pd.read_csv("../data/area_2023.csv")
+    df = pd.read_csv("./data/area_2023.csv")
     df.columns = ["시군구명", "면적"]
     df["시군구명"] = df["시군구명"].str.strip()
     return df
