@@ -13,7 +13,7 @@ emd = gpd.read_file("yc_emd.geojson")
 tourism_df = pd.read_csv("../../../public/asset/data/yc_df2.csv")
 toilet_df = pd.read_csv("../data/toilet.csv")  # 실제 경로에 맞게 수정
 # 임시 경로만 확보하고 close
-
+toilet_df.columns
 with tempfile.NamedTemporaryFile(delete=False, suffix=".geojson") as tmp:
     temp_path = tmp.name  # 경로 저장
 
