@@ -6,6 +6,9 @@ import plotly.express as px
 import folium
 from folium.plugins import MarkerCluster
 import plotly.graph_objects as go
+from api_file.lactation_api import fetch_lactation_rooms
+
+API_KEY = "42CA-2DDB-565B-5200-FD2F-F620-ADB3-718A"
 
 kb_df = pd.read_csv('./data/kb_df.csv')
 pop_df = pd.read_csv("./data/pop_2023.csv")
@@ -158,3 +161,133 @@ def load_processed_opening_data(kb_path: str, yc_path: str):
     yc_df['주말개방여부'] = yc_df.apply(check_weekend_open, axis=1)
 
     return kb_df, yc_df
+
+
+
+# ===============================
+# 2페이지
+# ===============================
+
+# 1
+def prepare_radar_data():
+    df_lactation = fetch_lactation_rooms(API_KEY)
+    kb_df = pd.read_csv('./data/kb_df.csv')
+    df = kb_df.copy()
+
+    base_cols = ['기저귀교환대', '어린이대변기', 'CCTV', '비상벨']
+    yeongcheon_base = df[df['시군구명'] == '영천시'][base_cols].mean()
+    gyeongbuk_base = df[base_cols].mean()
+
+    lactation_counts = df_lactation['시군구명'].value_counts(normalize=True)
+    yeongcheon_lactation = lactation_counts.get('영천시', 0)
+
+    yeongcheon_full = pd.concat([yeongcheon_base, pd.Series({'수유실': yeongcheon_lactation})])
+    gyeongbuk_full = pd.concat([gyeongbuk_base, pd.Series({'수유실': 1.0 / len(lactation_counts)})])
+
+    return yeongcheon_full, gyeongbuk_full
+
+
+#2 
+
+def prepare_grouped_bar_data(kb_df_path, df_lactation):
+    df = pd.read_csv(kb_df_path)
+
+    # 1. 기본 항목 비율
+    base_cols = ['기저귀교환대', '어린이대변기', 'CCTV', '비상벨']
+    grouped = df.groupby('시군구명')[base_cols].mean().reset_index()
+
+    # 2. 수유실 비율 추가
+    suyusil_counts = df_lactation['시군구명'].value_counts(normalize=True)
+    grouped['수유실'] = grouped['시군구명'].map(suyusil_counts).fillna(0)
+
+    # 3. Melt for plotly long-form
+    df_long = grouped.melt(id_vars='시군구명', var_name='항목', value_name='설치율')
+    return df_long
+
+
+# 3 비상벨
+
+def preprocess_emergency_bell(df: pd.DataFrame) -> pd.DataFrame:
+    # NaN 제거
+    df = df.dropna(subset=["비상벨"])
+
+    # 시군구별 비상벨 설치율 계산
+    bell_stats = df.groupby("시군구명")["비상벨"].agg(["mean", "count"]).reset_index()
+    bell_stats.columns = ["시군구명", "비상벨설치율", "총화장실수"]
+
+    # 정렬
+    bell_stats = bell_stats.sort_values("비상벨설치율", ascending=False).reset_index(drop=True)
+
+    # 색상 지정
+    bell_stats["색상"] = bell_stats["시군구명"].apply(
+        lambda x: "#1f77b4" if x == "영천시" else "#d3d3d3"
+    )
+
+    return bell_stats
+
+# 4 cctv
+
+
+def preprocess_cctv(df: pd.DataFrame) -> pd.DataFrame:
+    # NaN 제거
+    df = df.dropna(subset=["CCTV"])
+
+    # 시군구별 CCTV 설치율 계산
+    cctv_stats = df.groupby("시군구명")["CCTV"].agg(["mean", "count"]).reset_index()
+    cctv_stats.columns = ["시군구명", "CCTV설치율", "총화장실수"]
+
+    # 정렬
+    cctv_stats = cctv_stats.sort_values("CCTV설치율", ascending=False).reset_index(drop=True)
+
+    # 색상 지정
+    cctv_stats["색상"] = cctv_stats["시군구명"].apply(
+        lambda x: "#1f77b4" if x == "영천시" else "#d3d3d3"
+    )
+
+    return cctv_stats
+
+# 기저귀 교환대
+def preprocess_diaper(df: pd.DataFrame) -> pd.DataFrame:
+    # NaN 제거
+    df = df.dropna(subset=["기저귀교환대"])
+
+    # 시군구별 CCTV 설치율 계산
+    diaper_stats = df.groupby("시군구명")["기저귀교환대"].agg(["mean", "count"]).reset_index()
+    diaper_stats.columns = ["시군구명", "기저귀교환대설치율", "총화장실수"]
+
+    # 정렬
+    diaper_stats = diaper_stats.sort_values("기저귀교환대설치율", ascending=False).reset_index(drop=True)
+
+    # 색상 지정
+    diaper_stats["색상"] = diaper_stats["시군구명"].apply(
+        lambda x: "#1f77b4" if x == "영천시" else "#d3d3d3"
+    )
+
+    return diaper_stats
+
+
+# 5
+def preprocess_lactation_type(API_KEY):
+    df_lactation = fetch_lactation_rooms(API_KEY)
+    df_lactation["유형_아빠이용"] = df_lactation["수유실종류"] + " / " + df_lactation["아빠이용"]
+    # ✅ 카운트 집계
+    type_counts = df_lactation["유형_아빠이용"].value_counts().reset_index()
+    type_counts.columns = ["수유실유형_아빠이용", "개수"]
+
+    return type_counts
+
+
+
+# 어린이 변기
+
+def preprocess_child_fixture_rates(df):
+    rename_dict = {
+        '남성용-어린이용대변기수': '남아 대변기',
+        '남성용-어린이용소변기수': '남아 소변기',
+        '여성용-어린이용대변기수': '여아 대변기'
+    }
+    df = df.rename(columns=rename_dict)
+    grouped = df.groupby("시군구명")[list(rename_dict.values())].mean()
+    yeongcheon = grouped.loc["영천시"]
+    gyeongbuk_avg = grouped.mean()
+    return yeongcheon, gyeongbuk_avg
