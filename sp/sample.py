@@ -1,102 +1,53 @@
-import seaborn as sns
-from faicons import icon_svg
+import requests
+import pandas as pd
+import time
 
-from shiny import App, reactive, render, ui
-from shared import  df
-app_ui = ui.page_navbar(
-    ui.nav_panel(
-        "[1] 테마별 관광 통합 지도",
-        ui.page_sidebar(
-            ui.sidebar(
-                ui.input_slider("mass", "Mass", 2000, 6000, 6000),
-                ui.input_checkbox_group(
-                    "species",
-                    "Species",
-                    ["Adelie", "Gentoo", "Chinstrap"],
-                    selected=["Adelie", "Gentoo", "Chinstrap"],
-                ),
-                title="Filter controls",
-            ),
-            ui.layout_column_wrap(
-                ui.value_box(
-                    "Number of penguins",
-                    ui.output_text("count"),
-                    showcase=icon_svg("earlybirds"),
-                ),
-                ui.value_box(
-                    "Average bill length",
-                    ui.output_text("bill_length"),
-                    showcase=icon_svg("ruler-horizontal"),
-                ),
-                ui.value_box(
-                    "Average bill depth",
-                    ui.output_text("bill_depth"),
-                    showcase=icon_svg("ruler-vertical"),
-                ),
-                fill=False,
-            ),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("Bill length and depth"),
-                    ui.output_plot("length_depth"),
-                    full_screen=True,
-                ),
-                ui.card(
-                    ui.card_header("Penguin data"),
-                    ui.output_data_frame("summary_statistics"),
-                    full_screen=True,
-                ),
-            ),
-            fillable=True,
-        ),
-    ),
-    ui.nav_panel("[2] 축제/이벤트 캘린더(달력기반)", "Page B content"),
-    ui.nav_panel("[3] 기후 예보 기반 대응 시뮬레이션", "Page C content"),
-    ui.nav_panel("[4] 혼잡도/인기 스팟	유동인구 히트맵, 인기 명소 랭킹", "Page C content"),
-    ui.nav_panel("[5] 내 일정 만들기", "Page C content"),
-    title="8.5조",
-    id="page",
-)
+KAKAO_API_KEY = "fe0c4ebbe878bf51f535c24615d3ca23"
+headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
+
+search_targets = [
+    {"query": "영천 관광지", "code": "AT4", "분류": "관광지"},
+    {"query": "영천 캠핑장", "code": "OL7", "분류": "캠핑장"},
+    {"query": "영천 체험", "code": "", "분류": "체험시설"},  # 키워드 검색
+    {"query": "영천 문화시설", "code": "CT1", "분류": "문화시설"},
+    {"query": "영천 전통시장", "code": "PM9", "분류": "전통시장"},
+]
+
+all_results = []
+
+for target in search_targets:
+    for page in range(1, 6):
+        params = {
+            "query": target["query"],
+            "page": page,
+            "size": 15
+        }
+        if target["code"]:
+            params["category_group_code"] = target["code"]
+
+        res = requests.get("https://dapi.kakao.com/v2/local/search/keyword.json", headers=headers, params=params)
+        data = res.json()
+
+        if "documents" not in data or not data["documents"]:
+            break
+
+        for doc in data["documents"]:
+            all_results.append({
+                "이름": doc.get("place_name"),
+                "카테고리": doc.get("category_name"),
+                "분류": target["분류"],
+                "분류코드": target["code"],
+                "주소": doc.get("address_name"),
+                "도로명주소": doc.get("road_address_name"),
+                "전화번호": doc.get("phone"),
+                "위도": doc.get("y"),
+                "경도": doc.get("x"),
+                "URL": doc.get("place_url")
+            })
+
+        time.sleep(0.2)
+
+df = pd.DataFrame(all_results)
+df.to_excel("영천_관광_통합장소.xlsx", index=False)
 
 
-def server(input, output, session):
-    @reactive.calc
-    def filtered_df():
-        filt_df = df[df["species"].isin(input.species())]
-        filt_df = filt_df.loc[filt_df["body_mass_g"] < input.mass()]
-        return filt_df
-
-    @render.text
-    def count():
-        return filtered_df().shape[0]
-
-    @render.text
-    def bill_length():
-        return f"{filtered_df()['bill_length_mm'].mean():.1f} mm"
-
-    @render.text
-    def bill_depth():
-        return f"{filtered_df()['bill_depth_mm'].mean():.1f} mm"
-
-    @render.plot
-    def length_depth():
-        return sns.scatterplot(
-            data=filtered_df(),
-            x="bill_length_mm",
-            y="bill_depth_mm",
-            hue="species",
-        )
-
-    @render.data_frame
-    def summary_statistics():
-        cols = [
-            "species",
-            "island",
-            "bill_length_mm",
-            "bill_depth_mm",
-            "body_mass_g",
-        ]
-        return render.DataGrid(filtered_df()[cols], filters=True)
-
-
-app = App(app_ui, server)
