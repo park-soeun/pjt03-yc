@@ -109,7 +109,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 #  1. 시군구별 화장실 수 집계
-city_counts = gb_df["시군구"].value_counts().reset_index()
+city_counts = gb_df["시군구명"].value_counts().reset_index()
 city_counts.columns = ["시군구", "화장실 수"]
 city_counts = city_counts.sort_values("화장실 수", ascending=False)
 
@@ -135,7 +135,10 @@ top5_plus_yc = top5_plus_yc.rename(columns={"총인구 (명)": "총인구수"})
 display_df = top5_plus_yc[["시군구", "화장실 수", "총인구수"]].copy()
 display_df.columns = ["시군구", "화장실 수", "인구 수"]
 
+# 영천시 강조 색
+row_colors = ['#ffe0cc' if city == '영천시' else '#f9f9f9' for city in display_df["시군구"]]
 
+import plotly.graph_objects as go
 #  3. Plotly Table 시각화
 fig = go.Figure(data=[go.Table(
     header=dict(
@@ -154,8 +157,6 @@ fig = go.Figure(data=[go.Table(
     )
 )])
 
-# 영천시 강조 색
-row_colors = ['#ffe0cc' if city == '영천시' else '#f9f9f9' for city in display_df["시군구"]]
 
 fig.update_layout(
     title_text=f"영천시는 경북 공공화장실 수 {yc_rank}위 ({yc_toilet_count:,}개)",
