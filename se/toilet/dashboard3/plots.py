@@ -1,5 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
+import processing
+import numpy as np
 
 
 def plot_total_count(df1):
@@ -363,5 +365,59 @@ def plot_child_fixture_radar(yeongcheon, gyeongbuk_avg):
         polar=dict(radialaxis=dict(visible=True, range=[0, max(yeongcheon.max(), gyeongbuk_avg.max()) * 1.1])),
         showlegend=True,
         template='plotly_white'
+    )
+    return fig
+
+
+# ===
+# 3페이지
+# ===
+
+def plot_stacked(yc_df, selected_emd):
+    cols = ["비상벨", "CCTV", "기저귀교환대", "장애인화장실", "어린이대변기"]
+    colors = {
+        "비상벨": "#4daf4a",
+        "CCTV": "#377eb8",
+        "기저귀교환대": "#ff7f00",
+        "장애인화장실": "#984ea3",
+        "어린이대변기": "#e41a1c",
+    }
+
+    stacked_data = processing.get_stacked_data(yc_df, cols)
+    emd_list = stacked_data.index.tolist()
+    fig = go.Figure()
+    bottom = np.zeros(len(stacked_data))
+
+    for col in cols:
+        values = stacked_data[col].values
+        fig.add_trace(go.Bar(
+            x=emd_list,
+            y=values,
+            name=col,
+            marker_color=colors[col],
+            offsetgroup=0,
+            base=bottom,
+            hovertemplate=f"{col}: %{{y}}<extra></extra>",
+        ))
+        bottom += values
+
+    if selected_emd in emd_list:
+        idx = emd_list.index(selected_emd)
+        y_max = bottom[idx]
+        fig.add_shape(
+            type="rect",
+            x0=idx - 0.4, x1=idx + 0.4,
+            y0=0, y1=y_max,
+            line=dict(color="gold", width=3),
+        )
+
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="읍면동",
+        yaxis_title="설치 수 (항목별)",
+        title="읍면동별 공공화장실 항목별 설치 수 (누적 그래프)",
+        xaxis_tickangle=-45,
+        template="plotly_white",
+        legend_title="항목"
     )
     return fig
