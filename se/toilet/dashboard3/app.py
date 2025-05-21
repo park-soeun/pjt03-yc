@@ -16,19 +16,12 @@ from folium.plugins import MarkerCluster
 from htmltools import HTML
 import plotly.graph_objects as go
 import matplotlib.font_manager as fm
+from shared import font_prop
+
 
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 
-BASE_DIR = os.path.dirname(__file__)
-font_path = os.path.join(BASE_DIR, "www", "malgun-gothic.ttf")
-
-# font 등록
-font_prop = fm.FontProperties(fname=font_path)
-plt.rcParams['font.family'] = font_prop.get_name()
-plt.rcParams['axes.unicode_minus'] = False
-
-print(font_prop.get_name())
 
 # 📦 데이터 전처리
 kb_df = processing.load_toilet_data()
@@ -149,12 +142,12 @@ app_ui = ui.page_fluid(
         ui.tags.link(rel="stylesheet", href="styles.css")
     ),
     ui.page_navbar(
-            ui.nav_panel("1. 경북 vs 영천시",
+            ui.nav_panel("💩 영천 vs 경북",
             ui.layout_column_wrap(
                 width="1/1",
-                gap="16px"),
+                gap="20px",
+                ),
 
-                # 🧭 Header Section
                 ui.layout_columns(
                     ui.card(
                         ui.h3("📊 영천시 공공화장실 인프라, 어디쯤인가요?"),
@@ -169,7 +162,7 @@ app_ui = ui.page_fluid(
                         ),
                         class_="bg-white p-4 rounded-2xl shadow-md"
                     ),
-                    col_widths=(4, 8)
+                    col_widths=(7, 5)
                 ),
 
                 # 📊 SECTION 1: 절대 수 + 인구당 수
@@ -214,39 +207,39 @@ app_ui = ui.page_fluid(
                     )
                 ),
 
-                # 🚻 SECTION 4: 주말 개방 여부
-                ui.layout_columns(
-                    ui.card(
-                        ui.h4("⑦ 경북 주말 개방 여부"),
-                        output_widget("plot_weekend_gb"),
-                        class_="shadow-md p-3 rounded-xl"
+                    # 🚻 SECTION 4: 주말 개방 여부
+                    ui.layout_columns(
+                        ui.card(
+                            ui.h4("⑦ 경북 주말 개방 여부"),
+                            output_widget("plot_weekend_gb"),
+                            class_="shadow-md p-3 rounded-xl"
+                        ),
+                        ui.card(
+                            ui.h4("⑧ 영천 주말 개방 여부"),
+                            output_widget("plot_weekend_yc"),
+                            class_="shadow-md p-3 rounded-xl"
+                        )
                     ),
-                    ui.card(
-                        ui.h4("⑧ 영천 주말 개방 여부"),
-                        output_widget("plot_weekend_yc"),
-                        class_="shadow-md p-3 rounded-xl"
-                    )
-                )
-            ),
-                ui.nav_panel("2. 여성·가족 인프라 분석",
-                    ui.layout_column_wrap(
-                        width="1/1",
-                        gap="20px"),
-
-                        # ✅ 1행: 강조 텍스트 카드
+                    ui.layout_columns(
                         ui.card(
                             ui.h3("👶 출산율 1위 영천시, 인프라도 함께 1위일까?"),
-                            ui.p("수유실, CCTV, 비상벨, 어린이 대변기, 기저귀 교환대 등 여성·가족 친화 인프라를 시각화로 분석합니다."),
-                            class_="bg-amber-100 text-gray-900 p-4 rounded-xl shadow-md"
+                                ui.p("수유실, CCTV, 비상벨, 어린이 대변기, 기저귀 교환대 등 여성·가족 친화 인프라를 시각화로 분석합니다."),
+                                class_="bg-amber-100 text-gray-900 p-4 rounded-xl shadow-md"
                         ),
+                        ui.card(
+                            ui.layout_columns(
+                                ui.value_box("🍼 수유실 수 (영천)", "23개"),
+                                ui.value_box("🎥 CCTV 설치율", "82%"),
+                                ui.value_box("🚼 어린이 화장실 설치율", "34%"),
+                            col_widths=(4, 4, 4)
+                            ),
+                            class_="bg-white p-4 rounded-2xl shadow-md"
+                        ),
+                        col_widths=(7, 5)
+                    ),
 
                         # ✅ 2행: KPI 박스 (3열)
-                        ui.layout_columns(
-                            ui.value_box("🍼 수유실 수 (영천)", "23개"),
-                            ui.value_box("🎥 CCTV 설치율", "82%"),
-                            ui.value_box("🚼 어린이 화장실 설치율", "34%"),
-                            col_widths=(4, 4, 4)
-                        ),
+                        
 
                         # ✅ 3행: Radar Chart + Grouped Bar Chart (2열)
                         ui.layout_columns(
@@ -299,7 +292,7 @@ app_ui = ui.page_fluid(
                         ),
 
                     ),
-                    ui.nav_panel("3. 영천시 공공화장실·지도 대시보드",
+                    ui.nav_panel("🧻 읍면동별 화장실 현황",
                             ui.layout_columns(
                                 ui.card(
                                     ui.input_select("emd", "읍면동 선택", choices=emd_list),
@@ -379,8 +372,10 @@ def server(input, output, session):
             "어린이대변기": "#e41a1c",
         }
         stacked_data = get_stacked_data(yc_df, cols)
+
         plt.figure(figsize=(10, 7))
         bottom = np.zeros(len(stacked_data))
+
         for col in cols:
             barlist = plt.bar(
                 stacked_data.index,
@@ -395,11 +390,20 @@ def server(input, output, session):
                     barlist[i].set_edgecolor("black")
                     barlist[i].set_linewidth(2)
             bottom += stacked_data[col]
-        plt.xticks(rotation=45, ha="right")
-        plt.ylabel("설치 수 (항목별)")
-        plt.title("읍면동별 공공화장실 항목별 설치 수 (누적 그래프)", fontsize=14)
+
+        # ✅ 한글 폰트 적용 확실하게 다 해줌
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.yticks(fontproperties=font_prop)
+        plt.ylabel("설치 수 (항목별)", fontproperties=font_prop)
+        plt.title("읍면동별 공공화장실 항목별 설치 수 (누적 그래프)", fontsize=14, fontproperties=font_prop)
+
+        # ✅ 범례도 전체 폰트 지정
+        legend = plt.legend(title="항목")
+        for text in legend.get_texts():
+            text.set_fontproperties(font_prop)
+        legend.get_title().set_fontproperties(font_prop)
+
         plt.grid(axis="y", linestyle="--", alpha=0.3)
-        plt.legend(title="항목")
         plt.tight_layout()
         return plt.gcf()
 
@@ -420,6 +424,7 @@ def server(input, output, session):
                 bars[i].set_color("gold")
                 bars[i].set_edgecolor("red")
                 bars[i].set_linewidth(2)
+            # 바 위에 숫자 표시
         for bar in bars:
             height = bar.get_height()
             plt.text(
@@ -428,13 +433,19 @@ def server(input, output, session):
                 f"{int(height)}",
                 ha="center",
                 fontsize=9,
+                fontproperties=font_prop  # ✅ 텍스트에 폰트 적용
             )
-        plt.xticks(rotation=45, ha="right")
-        plt.ylabel("공공화장실 수")
-        plt.title("영천시 읍면동별 공공화장실 수")
+
+        # ✅ 폰트 적용
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.yticks(fontproperties=font_prop)
+        plt.ylabel("공공화장실 수", fontproperties=font_prop)
+        plt.title("영천시 읍면동별 공공화장실 수", fontproperties=font_prop)
+
+        # ✅ 범례 없음 → 생략
         plt.tight_layout()
         return plt.gcf()
-
+    
     @output
     @render.ui
     def updated_map():
