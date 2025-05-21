@@ -103,7 +103,7 @@ app_ui = ui.page_fluid(
                 gap="16px"),
 
                 # 🧭 Header Section
-                ui.layout_columns(ㅔ
+                ui.layout_columns(
                     ui.card(
                         ui.h3("📊 영천시 공공화장실 인프라, 어디쯤인가요?"),
                         ui.p("경북 전체와 비교한 영천시의 공공화장실 규모와 접근성은 평균 이하입니다."),
@@ -245,6 +245,7 @@ app_ui = ui.page_fluid(
                             ),
                             col_widths=(6, 6)
                         ),
+
                     )
             )
 )
