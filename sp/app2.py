@@ -12,27 +12,15 @@ from matplotlib.colors import LogNorm, to_hex
 import matplotlib
 
 # ----------- 폰트 한글 깨짐 방지 (Mac) -------------
-# 데이터와 폰트
-# 앱 디렉터리 설정
-from pathlib import Path
-import matplotlib as mpl
-import matplotlib.font_manager as fm
-app_dir = Path(__file__).parent
-
-# 한글 폰트 설정: MaruBuri-Regular.ttf 직접 로드
-font_path = app_dir / "MaruBuri-Regular.ttf"
-font_prop = fm.FontProperties(fname=font_path)
-
-# 마이너스 깨짐 방지
-mpl.rcParams["axes.unicode_minus"] = False
-
+plt.rcParams["font.family"] = "AppleGothic"
+plt.rcParams["axes.unicode_minus"] = False
 # ----------------------------------------------------
 
 
 static_dir = {"C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB"}
 s_dir = "C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB"
-os.chdir("C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB")
 
+os.chdir("C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB")
 
 # 데이터 로딩 (경로 수정 필요)
 yc_df = pd.read_csv("data/yc_df.csv")
