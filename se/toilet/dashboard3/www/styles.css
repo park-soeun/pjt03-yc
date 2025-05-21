@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gugi&display=swap');
+:root {
+    --bslib-sidebar-main-bg: #f8f8f8;
+}
+
+body {
+    font-family: "Gowun Dodum", sans-serif;
+    background-color: #f0f4f7;
+    color: #3e4e3e;
+    letter-spacing: 0.3px;
+}
+
+h3 {
+    color: #1a3c40;
+    font-weight: 700;
+    font-size: 1.7rem;
+}
+
+h4 {
+    color: #2c4d4d;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.value-box .title {
+    font-size: 0.9rem;
+    color: #4a4a4a;
+}
+
+.value-box .value {
+    font-size: 1.4rem;
+    color: #1f77b4;
+    font-weight: bold;
+}
+
+.bg-amber-100 {
+    background-color: #fff6ff !important;
+}
+
+.bg-red-50 {
+    background-color: #fef2f2 !important;
+}
+
+.text-red-900 {
+    color: #7f1d1d !important;
+}
+

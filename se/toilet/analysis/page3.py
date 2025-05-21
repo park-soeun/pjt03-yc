@@ -253,3 +253,45 @@ fig.show()
 
 
 kb_df.columns
+
+kb_df
+
+
+# 컬럼 이름 변경
+rename_dict = {
+    '남성용-어린이용대변기수': '남아 대변기',
+    '남성용-어린이용소변기수': '남아 소변기',
+    '여성용-어린이용대변기수': '여아 대변기'
+}
+kb_df = kb_df.rename(columns=rename_dict)
+
+# 시군구별 평균
+grouped = kb_df.groupby("시군구명")[list(rename_dict.values())].mean()
+
+# 영천시와 전체 평균
+yeongcheon = grouped.loc["영천시"]
+gyeongbuk_avg = grouped.mean()
+
+# 레이더 차트
+fig = go.Figure()
+fig.add_trace(go.Scatterpolar(
+    r=yeongcheon.tolist(),
+    theta=yeongcheon.index.tolist(),
+    fill='toself',
+    name='영천시',
+    line=dict(color='#1f77b4')
+))
+fig.add_trace(go.Scatterpolar(
+    r=gyeongbuk_avg.tolist(),
+    theta=gyeongbuk_avg.index.tolist(),
+    fill='toself',
+    name='경북 평균',
+    line=dict(color='gray')
+))
+fig.update_layout(
+    title='영천시 vs 경북 평균 (어린이용 기기 설치 평균)',
+    polar=dict(radialaxis=dict(visible=True, range=[0, max(yeongcheon.max(), gyeongbuk_avg.max()) * 1.1])),
+    showlegend=True,
+    template='plotly_white'
+)
+fig.show()

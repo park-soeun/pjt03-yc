@@ -291,3 +291,13 @@ def preprocess_child_fixture_rates(df):
     yeongcheon = grouped.loc["영천시"]
     gyeongbuk_avg = grouped.mean()
     return yeongcheon, gyeongbuk_avg
+
+
+
+
+# === 
+# 3페이지
+# ===
+def get_stacked_data(df: pd.DataFrame, cols: list) -> pd.DataFrame:
+    grouped = df.groupby("읍면동명")[cols].sum()
+    return grouped
