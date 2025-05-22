@@ -292,6 +292,23 @@ def preprocess_child_fixture_rates(df):
     gyeongbuk_avg = grouped.mean()
     return yeongcheon, gyeongbuk_avg
 
+# 레이더 차트 수정
+def load_and_prepare_comparison_data(kb_path: str) -> pd.DataFrame:
+    df = pd.read_csv(kb_path)
+    cols = ['기저귀교환대', '어린이대변기', 'CCTV', '비상벨']
+
+    yeongcheon_rates = df[df['시군구명'] == '영천시'][cols].mean()
+    gyeongbuk_rates = df[cols].mean()
+
+    compare_df = pd.DataFrame({
+        '항목': cols,
+        '영천시': yeongcheon_rates.values * 100,
+        '경북 평균': gyeongbuk_rates.values * 100
+    })
+
+    compare_df = compare_df.melt(id_vars='항목', var_name='지역', value_name='설치율')
+    return compare_df
+
 
 
 

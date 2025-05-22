@@ -17,7 +17,9 @@ def plot_total_count(df1):
         title='경상북도 시군구별 공공화장실 수',
         labels={'시군구명': '시군구', '화장실수': '화장실 수'},
         color='색상',  # 색상 구분에 사용할 컬럼
-        color_discrete_map='identity'  # HEX 색상 직접 적용
+        color_discrete_map='identity',  # HEX 색상 직접 적용
+        category_orders={'시군구명': df1['시군구명'].tolist()}  # ✅ x축 순서 고정
+
     )
 
     fig.update_layout(
@@ -40,7 +42,8 @@ def plot_per_10k(df):
         title="경상북도 시군구별 인구 1만명당 공공화장실 수",
         labels={"시군구명": "시군구", "인구1만명당_화장실수": "1만명당 화장실 수"},
         color="색상",
-        color_discrete_map="identity"
+        color_discrete_map="identity",
+        category_orders={"시군구명": df["시군구명"].tolist()}  # ✅ 순서 고정!
     )
     fig.update_layout(
         xaxis_tickangle=-45,
@@ -58,7 +61,8 @@ def plot_density(df):
         title="경상북도 시군구별 면적당 공공화장실 수 (개/m²)",
         labels={"시군구명": "시군구", "면적당_화장실수": "면적당 화장실 수"},
         color="색상",
-        color_discrete_map="identity"
+        color_discrete_map="identity",
+        category_orders={"시군구명": df["시군구명"].tolist()} 
     )
     fig.update_layout(
         xaxis_tickangle=-45,
@@ -66,7 +70,6 @@ def plot_density(df):
         template="plotly_white"
     )
     return fig
-
 def plot_growth_rate(df):
     fig = px.line(
         df,
@@ -135,6 +138,9 @@ def plot_open_type_pie(df: pd.DataFrame, region_name: str):
     count_df = df['개방시간유형'].value_counts().reset_index()
     count_df.columns = ['개방시간유형', '화장실수']
 
+    exclude_labels = ['제한적 운영', '정보없음']
+    count_df = count_df[~count_df['개방시간유형'].isin(exclude_labels)]
+
     fig = px.pie(
         count_df,
         names='개방시간유형',
@@ -145,8 +151,6 @@ def plot_open_type_pie(df: pd.DataFrame, region_name: str):
         color_discrete_map={
             '24시간': '#1f77b4',
             '주간개방': '#aec7e8',
-            '제한적 운영': '#ffbb78',
-            '정보없음': '#d3d3d3'
         }
     )
     fig.update_traces(textinfo='label+percent')
@@ -157,6 +161,9 @@ def plot_weekend_pie(df: pd.DataFrame, region_name: str):
     count_df = df['주말개방여부'].value_counts().reset_index()
     count_df.columns = ['주말개방여부', '화장실수']
 
+    # ✅ '미개방' 제외
+    count_df = count_df[~count_df['주말개방여부'].isin(['미개방'])]
+
     fig = px.pie(
         count_df,
         names='주말개방여부',
@@ -166,7 +173,6 @@ def plot_weekend_pie(df: pd.DataFrame, region_name: str):
         color='주말개방여부',
         color_discrete_map={
             '개방': '#1f77b4',
-            '미개방': '#d62728',
             '불명확': '#cccccc'
         }
     )
@@ -179,6 +185,23 @@ def plot_weekend_pie(df: pd.DataFrame, region_name: str):
 # ===============================
 # 2페이지
 # ===============================
+
+
+def plot_infra_comparison(compare_df):
+    fig = px.bar(
+        compare_df,
+        x='항목',
+        y='설치율',
+        color='지역',
+        barmode='group',
+        text='설치율',
+        title='가족·사회배려 인프라 설치율 비교: 영천시 vs 경북 평균',
+        color_discrete_map={'영천시': '#1f77b4', '경북 평균': '#cccccc'}
+    )
+    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+    fig.update_layout(template='plotly_white', yaxis_range=[0, 60])
+    return fig
+
 
 # 1
 def plot_radar_install_compare(yeongcheon_rates, gyeongbuk_rates):
