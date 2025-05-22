@@ -118,28 +118,37 @@ yc_rank = (city_counts["시군구"] == "영천시").idxmax() + 1
 yc_toilet_count = city_counts.loc[city_counts["시군구"] == "영천시", "화장실 수"].values[0]
 
 
-# 3. 상위 5개 + 영천시 추출
+# 상위 5개 + 생략(...) + 영천시 추출
 top5 = city_counts.head(5)
 yc_row = city_counts[city_counts["시군구"] == "영천시"]
-top5_plus_yc = pd.concat([top5, yc_row]).drop_duplicates().reset_index(drop=True)
+ellipsis_row = pd.DataFrame([["...", None]], columns=["시군구", "화장실 수"])
 
 
 
-# 컬럼명 통일
+# 인구 데이터 병합
 gb_pop_fixed = gb_pop.rename(columns={"행정구역별(읍면동)": "시군구"})
-#병합
-top5_plus_yc = pd.merge(top5_plus_yc, gb_pop_fixed, on="시군구", how="left")
-top5_plus_yc = top5_plus_yc.rename(columns={"총인구 (명)": "총인구수"})
+top_rows = pd.concat([top5, ellipsis_row, yc_row], ignore_index=True)
+top_rows = pd.merge(top_rows, gb_pop_fixed, on="시군구", how="left")
+top_rows = top_rows.rename(columns={"총인구 (명)": "총인구수"})
 
-#  필요한 컬럼만 추려내기 (정돈된 테이블)
-display_df = top5_plus_yc[["시군구", "화장실 수", "총인구수"]].copy()
+# 필요 컬럼만 정리
+display_df = top_rows[["시군구", "화장실 수", "총인구수"]].copy()
 display_df.columns = ["시군구", "화장실 수", "인구 수"]
 
-# 영천시 강조 색
-row_colors = ['#ffe0cc' if city == '영천시' else '#f9f9f9' for city in display_df["시군구"]]
+# ⛏️ '...' 행의 수치형 열을 문자열로 바꿔줌
+display_df.loc[display_df["시군구"] == "...", ["화장실 수", "인구 수"]] = "..."
 
-import plotly.graph_objects as go
-#  3. Plotly Table 시각화
+# 색상 강조: 영천시는 주황, 나머지는 회색, '...'은 연회색
+row_colors = []
+for city in display_df["시군구"]:
+    if city == "영천시":
+        row_colors.append('#ffe0cc')
+    elif city == "...":
+        row_colors.append('#eeeeee')
+    else:
+        row_colors.append('#f9f9f9')
+
+# Plotly Table 시각화
 fig = go.Figure(data=[go.Table(
     header=dict(
         values=list(display_df.columns),
@@ -157,15 +166,13 @@ fig = go.Figure(data=[go.Table(
     )
 )])
 
-
 fig.update_layout(
     title_text=f"영천시는 경북 공공화장실 수 {yc_rank}위 ({yc_toilet_count:,}개)",
     margin=dict(l=20, r=20, t=60, b=20),
-    height=430
+    height=480
 )
 
 fig.show()
-
 
 # --------------------------------------------------전처리-------------
 
@@ -253,3 +260,6 @@ fig.update_layout(
 )
 
 fig.show()
+
+
+agg_count['화장실수']
