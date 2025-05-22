@@ -69,7 +69,13 @@ yeongcheon, gyeongbuk_avg = processing.preprocess_child_fixture_rates(kb_df)
 gb_df = pd.read_csv("data/kb_df.csv")
 gb_pop = pd.read_csv("data/pop_2023.csv", skiprows=1)
 yc_pop = pd.read_csv("data/pop_emd_2020.csv", skiprows=1)
+
+replace_map = {"문외동27": "문외동", "양항리": "임고면", "치산리": "신녕면"}
+yc_df["읍면동명"] = yc_df["읍면동명"].replace(replace_map)
+
 emd_list = sorted(yc_df["읍면동명"].dropna().unique().tolist())
+
+
 
 # 지도 파일 데이터
 GDF_2KM_PATH = "./2km_grid.geojson"
@@ -292,7 +298,6 @@ app_ui = ui.page_fluid(
                             ui.layout_columns(
                                 ui.card(
                                     ui.output_ui("updated_map"),
-                                    ui.output_ui("plot_summary"),
                                 ),
                                 ui.card(
                                         ui.navset_tab(
@@ -303,6 +308,7 @@ app_ui = ui.page_fluid(
                                                 ui.output_plot("plot_stacked")
                                             )
                                         ),
+                                        ui.output_ui("plot_summary"),
                                         class_="shadow-md p-3 rounded-xl"
                                     ),
                                 col_widths=(7, 5)
@@ -415,7 +421,7 @@ def server(input, output, session):
             bottom += stacked_data[col]
 
         # ✅ 한글 폰트 적용 확실하게 다 해줌
-        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop, fontsize=7)
         plt.yticks(fontproperties=font_prop)
         plt.ylabel("설치 수 (항목별)", fontproperties=font_prop)
         plt.title("읍면동별 공공화장실 항목별 설치 수 (누적 그래프)", fontsize=14, fontproperties=font_prop)
@@ -461,7 +467,7 @@ def server(input, output, session):
             )
 
         # ✅ 폰트 적용
-        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop, fontsize = 7)
         plt.yticks(fontproperties=font_prop)
         plt.ylabel("공공화장실 수", fontproperties=font_prop)
         plt.title("영천시 읍면동별 공공화장실 수", fontproperties=font_prop)
@@ -491,7 +497,7 @@ def server(input, output, session):
         def get_opacity(v):
             return 0.55 if v > 0 else 0.01
 
-        heat_layer = folium.FeatureGroup(name="2km 격자 히트맵")
+        heat_layer = folium.FeatureGroup(name="2km 격자 히트맵", control=False)
         for _, row in gdf_2km.iterrows():
             val = row["val"]
             folium.GeoJson(
@@ -510,7 +516,7 @@ def server(input, output, session):
         heat_layer.add_to(m)
 
         # 마커 클러스터 레이어
-        marker_layer = folium.FeatureGroup(name="주소 마커 클러스터")
+        marker_layer = folium.FeatureGroup(name="주소 마커 클러스터", control=False)
         cluster = MarkerCluster()
         for _, row in coord_df.iterrows():
             lat, lon, addr = row["lat"], row["lon"], row["address"]
@@ -528,6 +534,7 @@ def server(input, output, session):
             geojson_data,
             name="영천시 경계",
             style_function=lambda f: {"color": "yellow", "weight": 2, "fill": False},
+            control=False
             # tooltip=folium.GeoJsonTooltip(fields=["EMD_KOR_NM"]),
         ).add_to(m)
 
@@ -560,6 +567,7 @@ def server(input, output, session):
             geojson_data,
             name="선택 읍면동",
             style_function=style_fn,
+            control=False,
             # #tooltip=folium.GeoJsonTooltip(
             #     fields=["EMD_KOR_NM"],
             #     sticky=False,
@@ -569,14 +577,43 @@ def server(input, output, session):
             # ),
         ).add_to(m)
 
-        folium.LayerControl(collapsed=False).add_to(m)
+        legend_html = """
+            {% macro html(this, kwargs) %}
+            <div style="
+                position: absolute;
+                top: 10px; right: 10px;
+                z-index: 9999;
+                background-color: white;
+                padding: 12px;
+                border: 1px solid lightgray;
+                border-radius: 8px;
+                font-size: 14px;
+                box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+            " class="leaflet-control leaflet-bar">
+                <b>히트맵 인구 수</b><br>
+                <i style="background:#d73027;width:18px;height:10px;display:inline-block;"></i> 매우 높음<br>
+                <i style="background:#fdae61;width:18px;height:10px;display:inline-block;"></i> 높음<br>
+                <i style="background:#ffffbf;width:18px;height:10px;display:inline-block;"></i> 중간<br>
+                <i style="background:#a6d96a;width:18px;height:10px;display:inline-block;"></i> 낮음<br>
+                <i style="background:#1a9850;width:18px;height:10px;display:inline-block;"></i> 매우 낮음
+            </div>
+            {% endmacro %}
+        """
+
+
+        # folium.LayerControl(collapsed=False).add_to(m)
         # 지도 크기 설정
+        from branca.element import Template, MacroElement
+        legend = MacroElement()
+        legend._template = Template(legend_html)
+        m.get_root().add_child(legend)
         m.get_root().html.add_child(
+            
             folium.Element(
                 f"""
                 <style>
                     .folium-map {{
-                        height: 500px !important;
+                        height: 100% !important;
                     }}
                     .map-title {{
                         position: absolute;
@@ -608,7 +645,7 @@ def server(input, output, session):
             <iframe 
                 src='./updated_map.html' 
                 width='100%' 
-                height='520px' 
+                height='100%' 
                 style='border:none;'>
             </iframe>
         """)
