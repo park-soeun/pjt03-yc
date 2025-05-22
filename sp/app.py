@@ -1,45 +1,75 @@
-from shiny import App, ui, render
-from htmltools import HTML
+from shiny import App, reactive, render, ui
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import plotly.express as px
 import geopandas as gpd
-import plotly.graph_objects as go
-import folium
-from folium.plugins import MarkerCluster
+from shinywidgets import render_widget, output_widget
+import processing, plots
+from plots import plot_open_type_pie, plot_weekend_pie
+from htmltools import tags
 import os
-from matplotlib.colors import LogNorm, to_hex
+import folium
+import matplotlib.pyplot as plt
+import numpy as np
 import matplotlib
-
-# ----------- 폰트 한글 깨짐 방지 (Mac) -------------
-# 데이터와 폰트
-# 앱 디렉터리 설정
-from pathlib import Path
-import matplotlib as mpl
+from matplotlib.colors import LogNorm, to_hex
+from folium.plugins import MarkerCluster
+from htmltools import HTML
+import plotly.graph_objects as go
 import matplotlib.font_manager as fm
-app_dir = Path(__file__).parent
-
-# 한글 폰트 설정: MaruBuri-Regular.ttf 직접 로드
-font_path = app_dir / "MaruBuri-Regular.ttf"
-font_prop = fm.FontProperties(fname=font_path)
-
-# 마이너스 깨짐 방지
-mpl.rcParams["axes.unicode_minus"] = False
-
-# ----------------------------------------------------
+from shared import font_prop
 
 
-static_dir = {"C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB"}
-s_dir = "C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB"
-os.chdir("C:/Users/USER/Desktop/my_blog/my_blog/project/pjt03-yc/sp/shiny_DB")
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 
 
-# 데이터 로딩 (경로 수정 필요)
-yc_df = pd.read_csv("data/yc_df.csv")
-toilet_df = pd.read_csv("data/toilet.csv")
+# 📦 데이터 전처리
+kb_df = processing.load_toilet_data()
+df_plot = processing.get_toilet_count_by_region(kb_df)
+pop_df = processing.load_population_data()
+df_per_10k = processing.get_toilet_per_10k(kb_df, pop_df)
+area_df = processing.load_area_data()
+
+
+kb_df = processing.load_toilet_data()
+pop_df = processing.load_population_data()
+
+count_df = processing.get_toilet_count_by_region(kb_df)
+df_per_10k = processing.get_toilet_per_10k(kb_df, pop_df)
+df_density = processing.get_toilet_density(kb_df, area_df)
+df_growth = processing.get_toilet_growth_trend(kb_df)
+yearly_df = processing.get_toilet_growth_trend(kb_df)
+combined_top_bottom_yc = processing.get_combined_growth_comparison(kb_df)
+kb_path = 'data/kb_df.csv'
+yc_path = 'data/yc_df.csv'
+
+
+# 전처리
+kb_df, yc_df = processing.load_processed_opening_data(kb_path, yc_path)
+
+kb_df = pd.read_csv('data/kb_df.csv')
+yc_df = pd.read_csv('data/yc_df.csv')
+
+# 2페이지
+yeongcheon_rates, gyeongbuk_rates = processing.prepare_radar_data()
+
+
+API_KEY = "42CA-2DDB-565B-5200-FD2F-F620-ADB3-718A"
+
+df_lactation = processing.fetch_lactation_rooms(API_KEY)
+df_long = processing.prepare_grouped_bar_data("data/kb_df.csv", df_lactation)
+lactation_type_df = processing.preprocess_lactation_type(API_KEY)
+bell_df = processing.preprocess_emergency_bell(kb_df)
+cctv_df = processing.preprocess_cctv(kb_df)
+diaper_df = processing.preprocess_diaper(kb_df)
+yeongcheon, gyeongbuk_avg = processing.preprocess_child_fixture_rates(kb_df)
+
+# === hs
+
 gb_df = pd.read_csv("data/kb_df.csv")
 gb_pop = pd.read_csv("data/pop_2023.csv", skiprows=1)
 yc_pop = pd.read_csv("data/pop_emd_2020.csv", skiprows=1)
+emd_list = sorted(yc_df["읍면동명"].dropna().unique().tolist())
 
 # 지도 파일 데이터
 GDF_2KM_PATH = "./2km_grid.geojson"
@@ -49,26 +79,8 @@ gdf_2km = gpd.read_file(GDF_2KM_PATH)
 gdf_boundary = gpd.read_file(BOUNDARY_PATH)
 coord_df = pd.read_csv(COORD_CSV_PATH)
 geojson_data = gdf_boundary.__geo_interface__
+# === 
 
-emd_list = sorted(yc_df["읍면동명"].dropna().unique().tolist())
-
-# ---------------- UI 정의 -----------------
-app_ui = ui.page_fluid(
-    ui.panel_title("영천시 공공화장실·지도 대시보드"),
-    ui.layout_columns(
-        ui.card(
-            ui.input_select("emd", "읍면동 선택", choices=emd_list),
-            ui.output_plot("plot_stacked"),
-            ui.output_plot("plot_count"),
-        ),
-        ui.card(
-            ui.output_ui("updated_map"),
-            ui.output_ui("plot_summary"),
-            ui.output_ui("plot_rank"),
-            ui.output_ui("plot_vulnerable"),
-        ),
-    ),
-)
 
 
 # ----------- 함수: 누적 그래프 데이터 --------------
@@ -83,10 +95,271 @@ def get_stacked_data(yc_df, cols):
         summary_df["설치된항목수"].sort_values(ascending=False).index
     ]
     return stacked_data
+ 
+def classify_open_type(row):
+    기본 = str(row['개방시간']) if pd.notna(row['개방시간']) else ''
+    상세 = str(row['개방시간상세']) if pd.notna(row['개방시간상세']) else ''
+    combined = 기본 + ' ' + 상세
+    combined = combined.lower().replace(' ', '').replace('~', '-')
+
+    if any(kw in combined for kw in ['24', '00:00-24:00', '상시', '연중무휴']):
+        return '24시간'
+    elif any(kw in combined for kw in [
+        '09', '06', '07', '08', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+        '정시', '근무시간', '영업시간'
+    ]):
+        return '주간개방'
+    elif any(kw in combined for kw in ['행사', '경기', '개장시', '필요시', '학생', '동절기', '이용중단', '야영장']):
+        return '제한적 운영'
+    else:
+        return '정보없음'
 
 
-# ---------------- 서버 정의 -----------------
+def check_weekend_open(row):
+    text = str(row['개방시간']) + ' ' + str(row['개방시간상세'])
+    text = text.replace(' ', '').lower()
+
+    if '주말' in text and '미개방' in text:
+        return '미개방'
+    if '공휴일미개방' in text or '휴일미개방' in text:
+        return '미개방'
+    if '주말' in text or '공휴일' in text or '토요일' in text or '일요일' in text:
+        return '개방'
+    if '연중무휴' in text or '24시간' in text or '상시' in text:
+        return '개방'
+    return '불명확'
+
+
+kb_df['개방시간유형'] = kb_df.apply(classify_open_type, axis=1)
+kb_df['주말개방여부'] = kb_df.apply(check_weekend_open, axis=1)
+
+yc_df['개방시간유형'] = yc_df.apply(classify_open_type, axis=1)
+yc_df['주말개방여부'] = yc_df.apply(check_weekend_open, axis=1)
+
+# ==== UI ====
+
+app_ui = ui.page_fluid(
+    ui.tags.head(
+        ui.tags.link(rel="stylesheet", href="styles.css")
+    ),
+    ui.page_navbar(
+            ui.nav_panel("💩 영천 vs 경북",
+            ui.layout_column_wrap(
+                width="1/1",
+                gap="20px",
+                ),
+
+                ui.layout_columns(
+                    ui.card(
+                        ui.h3("📊 영천시 공공화장실 인프라, 어디쯤인가요?"),
+                        ui.p("경북 전체와 비교한 영천시의 공공화장실 규모와 접근성은 평균 이하입니다."),
+                        class_="bg-sky-100 text-sky-900 p-4 rounded-xl shadow-md"
+                    ),
+                    ui.card(
+                        ui.layout_columns(
+                            ui.value_box("🚻 총 화장실 수", "92개"),
+                            ui.value_box("👥 인구 1만명당 수", "1.14개"),
+                            ui.value_box("📐 ㎢당 밀도", "0.33개"),
+                        ),
+                        class_="bg-white p-4 rounded-2xl shadow-md"
+                    ),
+                    col_widths=(7, 5)
+                ),
+
+                # 📊 SECTION 1: 절대 수 + 인구당 수
+                ui.layout_columns(
+                    ui.card(
+                        ui.h4("① 시군구별 전체 화장실 수"),
+                        output_widget("plot_total_count_"),
+                        class_="shadow-md p-3 rounded-xl"
+                    ),
+                    ui.card(
+                        ui.h4("② 인구 1만명당 화장실 수"),
+                        output_widget("plot_per_10k"),
+                        class_="shadow-md p-3 rounded-xl"
+                    ),
+                    ui.card(
+                        ui.h4("③ 면적당 화장실 수 (개/㎢)"),
+                        output_widget("plot_density"),
+                        class_="shadow-md p-3 rounded-xl"
+                    ),
+                ),
+
+                # 📐 SECTION 2: 증가율
+                ui.layout_columns(
+                    ui.card(
+                        ui.h4("④ 화장실 설치 증가 추이 (2015~2023)"),
+                        output_widget("plot_growth_comparison"),
+                        class_="shadow-md p-3 rounded-xl"
+                    )
+                ),
+
+                # 🕓 SECTION 3: 개방시간 비교
+                ui.layout_columns(
+                    ui.card(
+                        ui.h4("⑤ 경북 전체 개방시간 유형 분포"),
+                        output_widget("plot_opening_gb"),
+                        class_="shadow-md p-3 rounded-xl"
+                    ),
+                    ui.card(
+                        ui.h4("⑥ 영천 개방시간 유형 분포"),
+                        output_widget("plot_opening_yc"),
+                        class_="shadow-md p-3 rounded-xl"
+                    )
+                ),
+
+                    # 🚻 SECTION 4: 주말 개방 여부
+                    ui.layout_columns(
+                        ui.card(
+                            ui.h4("⑦ 경북 주말 개방 여부"),
+                            output_widget("plot_weekend_gb"),
+                            class_="shadow-md p-3 rounded-xl"
+                        ),
+                        ui.card(
+                            ui.h4("⑧ 영천 주말 개방 여부"),
+                            output_widget("plot_weekend_yc"),
+                            class_="shadow-md p-3 rounded-xl"
+                        )
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.h3("👶 출산율 1위 영천시, 인프라도 함께 1위일까?"),
+                                ui.p("수유실, CCTV, 비상벨, 어린이 대변기, 기저귀 교환대 등 여성·가족 친화 인프라를 시각화로 분석합니다."),
+                                class_="bg-amber-100 text-gray-900 p-4 rounded-xl shadow-md"
+                        ),
+                        ui.card(
+                            ui.layout_columns(
+                                ui.value_box("🍼 수유실 수 (영천)", "23개"),
+                                ui.value_box("🎥 CCTV 설치율", "82%"),
+                                ui.value_box("🚼 어린이 화장실 설치율", "34%"),
+                            col_widths=(4, 4, 4)
+                            ),
+                            class_="bg-white p-4 rounded-2xl shadow-md"
+                        ),
+                        col_widths=(7, 5)
+                    ),
+
+                        # ✅ 2행: KPI 박스 (3열)
+                        
+
+                        # ✅ 3행: Radar Chart + Grouped Bar Chart (2열)
+                        ui.layout_columns(
+                            ui.card(
+                                ui.h4("① 영천시 vs 경북 평균: 편의시설 설치율"),
+                                output_widget("radar_install_compare"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            ui.card(
+                                ui.h4("② 시군구별 5대 항목 설치율"),
+                                output_widget("bar_install_regions"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            col_widths=(6, 6)
+                        ),
+
+                        # ✅ 4행: 항목별 설치율 Top5 (3열)
+                        ui.layout_columns(
+                            ui.card(
+                                ui.h4("③ CCTV 설치율 Top 5"),
+                                output_widget("plot_cctv"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            ui.card(
+                                ui.h4("④ 비상벨 설치율 Top 5"),
+                                output_widget("plot_emergency_bell"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            ui.card(
+                                ui.h4("⑤ 기저귀 교환대 설치율 Top 5"),
+                                output_widget("plot_diaper"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            col_widths=(4, 4, 4)
+                        ),
+
+                        # ✅ 5행: Pie Charts (2열)
+                        ui.layout_columns(
+                            ui.card(
+                                ui.h4("⑥ 수유실 유형 분포"),
+                                output_widget("lactation_type_pie"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            ui.card(
+                                ui.h4("⑦ 어린이 대변기 설치 여부"),
+                                output_widget("plot_child_fixture"),
+                                class_="shadow-md p-3 rounded-xl"
+                            ),
+                            col_widths=(6, 6)
+                        ),
+
+                    ),
+                    ui.nav_panel("🧻 읍면동별 화장실 현황",
+                            ui.layout_columns(
+                                ui.card(
+                                    ui.input_select("emd", "읍면동 선택", choices=emd_list),
+                                    ui.output_plot("plot_count"),
+                                    ui.output_plot("plot_stacked"),
+                                ),
+                                ui.card(
+                                    ui.output_ui("updated_map"),
+                                    ui.output_ui("plot_summary"),
+                                    ui.output_ui("plot_rank"),
+                                    ui.output_ui("plot_vulnerable"),
+                            ),
+                        ),  
+                    )
+            )
+)
+# # 전처리 결과
+
+# ✅ 서버 로직
 def server(input, output, session):
+
+    def plot_total_count_():
+        return plots.plot_total_count(count_df)
+
+    def plot_per_10k():
+        return plots.plot_per_10k(df_per_10k)
+
+    def plot_density():
+        return plots.plot_density(df_density)
+
+    def plot_growth_rate():
+        return plots.plot_growth_rate(yearly_df)
+
+    def plot_growth_comparison():
+        return plots.plot_growth_comparison(combined_top_bottom_yc)
+    
+    def plot_opening_gb():
+        return plot_open_type_pie(kb_df, "경북 전체")
+
+    def plot_opening_yc():
+        return plot_open_type_pie(yc_df, "영천시")
+
+    def plot_weekend_gb():
+        return plot_weekend_pie(kb_df, "경북 전체")
+
+    def plot_weekend_yc():
+        return plot_weekend_pie(yc_df, "영천시")
+    
+    def radar_install_compare():
+        return plots.plot_radar_install_compare(yeongcheon_rates, gyeongbuk_rates)
+
+    def bar_install_regions():
+        return plots.plot_grouped_bar(df_long)
+    
+    def lactation_type_pie():
+        return plots.plot_lactation_type_pie(lactation_type_df)
+    def plot_emergency_bell():
+        return plots.plot_emergency_bell(bell_df)
+    def plot_cctv():
+        return plots.plot_cctv(cctv_df)
+    def plot_diaper():
+        return plots.plot_diaper(diaper_df)
+    
+    def plot_child_fixture():
+        return plots.plot_child_fixture_radar(yeongcheon, gyeongbuk_avg)
+        
     @output
     @render.plot
     def plot_stacked():
@@ -100,8 +373,10 @@ def server(input, output, session):
             "어린이대변기": "#e41a1c",
         }
         stacked_data = get_stacked_data(yc_df, cols)
+
         plt.figure(figsize=(10, 7))
         bottom = np.zeros(len(stacked_data))
+
         for col in cols:
             barlist = plt.bar(
                 stacked_data.index,
@@ -116,11 +391,20 @@ def server(input, output, session):
                     barlist[i].set_edgecolor("black")
                     barlist[i].set_linewidth(2)
             bottom += stacked_data[col]
-        plt.xticks(rotation=45, ha="right")
-        plt.ylabel("설치 수 (항목별)")
-        plt.title("읍면동별 공공화장실 항목별 설치 수 (누적 그래프)", fontsize=14)
+
+        # ✅ 한글 폰트 적용 확실하게 다 해줌
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.yticks(fontproperties=font_prop)
+        plt.ylabel("설치 수 (항목별)", fontproperties=font_prop)
+        plt.title("읍면동별 공공화장실 항목별 설치 수 (누적 그래프)", fontsize=14, fontproperties=font_prop)
+
+        # ✅ 범례도 전체 폰트 지정
+        legend = plt.legend(title="항목")
+        for text in legend.get_texts():
+            text.set_fontproperties(font_prop)
+        legend.get_title().set_fontproperties(font_prop)
+
         plt.grid(axis="y", linestyle="--", alpha=0.3)
-        plt.legend(title="항목")
         plt.tight_layout()
         return plt.gcf()
 
@@ -141,6 +425,7 @@ def server(input, output, session):
                 bars[i].set_color("gold")
                 bars[i].set_edgecolor("red")
                 bars[i].set_linewidth(2)
+            # 바 위에 숫자 표시
         for bar in bars:
             height = bar.get_height()
             plt.text(
@@ -149,13 +434,19 @@ def server(input, output, session):
                 f"{int(height)}",
                 ha="center",
                 fontsize=9,
+                fontproperties=font_prop  # ✅ 텍스트에 폰트 적용
             )
-        plt.xticks(rotation=45, ha="right")
-        plt.ylabel("공공화장실 수")
-        plt.title("영천시 읍면동별 공공화장실 수")
+
+        # ✅ 폰트 적용
+        plt.xticks(rotation=45, ha="right", fontproperties=font_prop)
+        plt.yticks(fontproperties=font_prop)
+        plt.ylabel("공공화장실 수", fontproperties=font_prop)
+        plt.title("영천시 읍면동별 공공화장실 수", fontproperties=font_prop)
+
+        # ✅ 범례 없음 → 생략
         plt.tight_layout()
         return plt.gcf()
-
+    
     @output
     @render.ui
     def updated_map():
@@ -214,7 +505,7 @@ def server(input, output, session):
             geojson_data,
             name="영천시 경계",
             style_function=lambda f: {"color": "yellow", "weight": 2, "fill": False},
-            tooltip=folium.GeoJsonTooltip(fields=["EMD_KOR_NM"]),
+            # tooltip=folium.GeoJsonTooltip(fields=["EMD_KOR_NM"]),
         ).add_to(m)
 
         # 선택 읍면동 하이라이트
@@ -246,16 +537,47 @@ def server(input, output, session):
             geojson_data,
             name="선택 읍면동",
             style_function=style_fn,
-            tooltip=folium.GeoJsonTooltip(
-                fields=["EMD_KOR_NM"],
-                sticky=False,
-                permanent=True,
-                direction="center",
-                opacity=0.9,
-            ),
+            # #tooltip=folium.GeoJsonTooltip(
+            #     fields=["EMD_KOR_NM"],
+            #     sticky=False,
+            #     permanent=True,
+            #     direction="center",
+            #     opacity=0.9,
+            # ),
         ).add_to(m)
 
         folium.LayerControl(collapsed=False).add_to(m)
+        # 지도 크기 설정
+        m.get_root().html.add_child(
+            folium.Element(
+                f"""
+                <style>
+                    .folium-map {{
+                        height: 500px !important;
+                        width: 100% !important;
+                    }}
+                    .map-title {{
+                        position: absolute;
+                        top: 18px; left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 9999;
+                        background: rgba(0,0,0,0.6);
+                        color: gold;
+                        padding: 12px 28px;
+                        border-radius: 24px;
+                        font-size: 2.1rem;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+                        border: 2px solid #ffec8b;
+                        pointer-events: none;
+                    }}
+                </style>
+                <div class="map-title">{selected}</div>
+                """
+            )
+        )
+
         return HTML(m.get_root().render())
 
     @output
@@ -270,18 +592,48 @@ def server(input, output, session):
             "어린이대변기",
         ]
         selected = input.emd()
-        selected_df = yc_df[cols].copy()
-        summary_df = selected_df.groupby("읍면동명")[cols[1:]].sum().astype(int)
-        summary_df["총합"] = summary_df.sum(axis=1)
-        summary_sorted = summary_df.sort_values("총합", ascending=False).reset_index()
 
+        # 집계
+        summary_df = yc_df[cols].copy()
+        summary_df["총합"] = summary_df[cols[1:]].sum(axis=1)
+        summary_df = (
+            summary_df.groupby("읍면동명")[cols[1:] + ["총합"]].sum().astype(int)
+        )
+
+        # 총합 기준으로 정렬 후 순위 인덱스 부여
+        summary_df_sorted = summary_df.sort_values(
+            "총합", ascending=False
+        ).reset_index()
+        summary_df_sorted["__rank__"] = summary_df_sorted.index + 1  # 총합 기준 순위
+
+        # 선택된 항목과 top5 추출
+        top5 = summary_df_sorted.head(5)
+        selected_row = summary_df_sorted[summary_df_sorted["읍면동명"] == selected]
+
+        # 병합 후 중복 제거
+        display_df = pd.concat([selected_row, top5]).drop_duplicates("읍면동명")
+
+        # 선택된 항목을 맨 위로 정렬
+        display_df["정렬키"] = display_df["읍면동명"].apply(
+            lambda x: 0 if x == selected else 1
+        )
+        display_df = display_df.sort_values(["정렬키", "총합"], ascending=[True, False])
+
+        # 총합 순위 기준으로 인덱스 설정
+        display_df = display_df.set_index("__rank__")
+        display_df.index.name = "인덱스"
+
+        # 하이라이트 함수 정의
         def _highlight(row):
-            if row["읍면동명"] == selected:
-                return [f"background-color: gold"] * len(row)
-            else:
-                return ["" for _ in row]
+            return (
+                ["background-color: gold"] * len(row)
+                if row["읍면동명"] == selected
+                else ["" for _ in row]
+            )
 
-        html = summary_sorted.style.apply(_highlight, axis=1).to_html()
+        html = (
+            display_df.drop(columns="정렬키").style.apply(_highlight, axis=1).to_html()
+        )
         return HTML(html)
 
     @output
@@ -343,7 +695,7 @@ def server(input, output, session):
         selected = input.emd()
         features = ["비상벨", "CCTV", "기저귀교환대", "장애인화장실", "어린이대변기"]
         temp = yc_df.copy()
-        temp["읍면동"] = temp["소재지도로명주소"].str.extract(r"영천시\s*([^\s]+)")
+        temp["읍면동"] = temp["소재지도로명주소"].str.extract(r"영천시/s*([^/s]+)")
         for f in features:
             temp[f] = temp[f].map({"Y": 1, "N": 0, 1: 1, 0: 0}).fillna(0).astype(int)
         agg_opt = temp.groupby("읍면동")[features].sum()
@@ -421,5 +773,33 @@ def server(input, output, session):
         return HTML(fig.to_html(include_plotlyjs="cdn"))
 
 
-# 앱 실행
-app = App(app_ui, server, static_assets=s_dir)
+    
+    output.plot_opening_gb = render_widget(plot_opening_gb)
+    output.plot_opening_yc = render_widget(plot_opening_yc)
+    output.plot_weekend_gb = render_widget(plot_weekend_gb)
+    output.plot_weekend_yc = render_widget(plot_weekend_yc)
+
+    output.plot_total_count_ = render_widget(plot_total_count_)
+    output.plot_per_10k = render_widget(plot_per_10k)
+    output.plot_density = render_widget(plot_density)
+    output.plot_growth_rate = render_widget(plot_growth_rate)
+    output.plot_growth_comparison = render_widget(plot_growth_comparison)
+
+    output.plot_opening_gb = render_widget(plot_opening_gb)
+    output.plot_opening_yc = render_widget(plot_opening_yc)
+    output.plot_weekend_gb = render_widget(plot_weekend_gb)
+    output.plot_weekend_yc = render_widget(plot_weekend_yc)
+    output.radar_install_compare = render_widget(radar_install_compare)
+    output.bar_install_regions = render_widget(bar_install_regions)
+    output.lactation_type_pie = render_widget(lactation_type_pie)
+    output.plot_emergency_bell = render_widget(plot_emergency_bell)
+    output.plot_cctv = render_widget(plot_cctv)
+    output.plot_diaper = render_widget(plot_diaper)
+    output.plot_child_fixture = render_widget(plot_child_fixture)
+
+
+
+app = App(app_ui, server, static_assets=STATIC_DIR)
+
+
+
