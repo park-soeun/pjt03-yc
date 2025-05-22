@@ -83,7 +83,18 @@ BOUNDARY_PATH = "./yeongcheon_boundary.geojson"
 COORD_CSV_PATH = "./yc_address_coords.csv"
 gdf_2km = gpd.read_file(GDF_2KM_PATH)
 gdf_boundary = gpd.read_file(BOUNDARY_PATH)
-coord_df = pd.read_csv(COORD_CSV_PATH)
+#
+# coord_df = pd.read_csv(COORD_CSV_PATH)
+coord_df = (
+    yc_df[["WGS84위도", "WGS84경도", "소재지도로명주소"]]
+    .dropna(subset=["WGS84위도", "WGS84경도"])
+    .copy()
+)
+
+# 선택적으로 컬럼명 변경
+coord_df.columns = ["lat", "lon", "address"]
+
+coord_df.info()
 geojson_data = gdf_boundary.__geo_interface__
 # === 
 
@@ -332,7 +343,7 @@ app_ui = ui.page_fluid(
                                 ),
                         ),  
                     ),
-                    title="9조 - 영천 대똥여지도",
+                    title="영천 대똥여지도",
                     id="page",
             ),
 )
@@ -414,10 +425,12 @@ def server(input, output, session):
                 color=colors[col],
             )
             for i, emd in enumerate(stacked_data.index):
-                if emd == selected:
-                    barlist[i].set_color("gold")
-                    barlist[i].set_edgecolor("black")
+                if emd != selected:
                     barlist[i].set_linewidth(2)
+                    barlist[i].set_alpha(0.4)
+                else:
+                    barlist[i].set_linewidth(2)
+                    barlist[i].set_edgecolor("gray")
             bottom += stacked_data[col]
 
         # ✅ 한글 폰트 적용 확실하게 다 해줌
@@ -450,10 +463,13 @@ def server(input, output, session):
             color="cornflowerblue",
         )
         for i, emd in enumerate(toilet_count_sorted["읍면동명"]):
-            if emd == selected:
-                bars[i].set_color("gold")
-                bars[i].set_edgecolor("red")
+            if emd != selected:
                 bars[i].set_linewidth(2)
+                bars[i].set_alpha(0.3)
+            else:
+                bars[i].set_linewidth(2)
+                bars[i].set_edgecolor("gray")       # 테두리 강조
+
             # 바 위에 숫자 표시
         for bar in bars:
             height = bar.get_height()
@@ -512,18 +528,18 @@ def server(input, output, session):
                     f"인구: {val:.0f}<br>읍면동: {row.get('EMD_KOR_NM', '없음')}",
                     sticky=True,
                 ),
-            ).add_to(heat_layer)
+            ).add_to(heat_layer) 
         heat_layer.add_to(m)
 
         # 마커 클러스터 레이어
         marker_layer = folium.FeatureGroup(name="주소 마커 클러스터", control=False)
         cluster = MarkerCluster()
         for _, row in coord_df.iterrows():
-            lat, lon, addr = row["lat"], row["lon"], row["address"]
+            lat, lon = row["lat"], row["lon"]
             folium.Marker(
                 location=[lat, lon],
-                tooltip=addr,
-                popup=addr,
+                # tooltip=addr,
+                # popup=addr,
                 icon=folium.Icon(color="blue", icon="info-sign"),
             ).add_to(cluster)
         cluster.add_to(marker_layer)
@@ -696,7 +712,7 @@ def server(input, output, session):
         # 하이라이트 함수 정의
         def _highlight(row):
             return (
-                ["background-color: gold"] * len(row)
+                ["background-color: skyblue"] * len(row)
                 if row["읍면동명"] == selected
                 else ["" for _ in row]
             )
@@ -709,6 +725,7 @@ def server(input, output, session):
     @output
     @render.ui
     def plot_rank():
+        #  기본 데이터 집계
         city_counts = gb_df["시군구명"].value_counts().reset_index()
         city_counts.columns = ["시군구", "화장실 수"]
         city_counts = city_counts.sort_values("화장실 수", ascending=False)
@@ -716,33 +733,56 @@ def server(input, output, session):
         yc_rank = (city_counts["시군구"] == "영천시").idxmax() + 1
         yc_toilet_count = city_counts.loc[city_counts["시군구"] == "영천시", "화장실 수"].values[0]
 
+        # 인구 병합
+        gb_pop_fixed = gb_pop.rename(columns={"행정구역별(읍면동)": "시군구"})
+        city_all = pd.merge(city_counts, gb_pop_fixed, on="시군구", how="left")
+        city_all = city_all.rename(columns={"총인구 (명)": "총인구수"})
+
+        # 2️ 트리맵
+        color_map = {city: '#d3d3d3' for city in city_all["시군구"].unique()}
+        color_map["영천시"] = '#ffa366'
+
+        treemap_fig = px.treemap(
+            city_all,
+            path=["시군구"],
+            values="화장실 수",
+            color="시군구",
+            color_discrete_map=color_map,
+            hover_data={"총인구수": True, "화장실 수": True}
+        )
+        treemap_fig.update_traces(
+            textinfo="label+value",
+            hovertemplate="<b>%{label}</b><br>화장실 수: %{value:,}개<br>인구수: %{customdata[0]:,}명<extra></extra>"
+        )
+        treemap_fig.update_layout(
+            title=f"경북 전체 시군구별 공공화장실 수 트리맵<br><sup>영천시는 {yc_rank}위, 총 {yc_toilet_count:,}개 설치</sup>",
+            margin=dict(t=60, l=20, r=20, b=20),
+            height=600
+        )
+
+        # 3️ 테이블 (Top5 + 생략 + 영천시)
         top5 = city_counts.head(5)
         yc_row = city_counts[city_counts["시군구"] == "영천시"]
         ellipsis_row = pd.DataFrame([["...", None]], columns=["시군구", "화장실 수"])
         top_rows = pd.concat([top5, ellipsis_row, yc_row], ignore_index=True)
 
-        gb_pop_fixed = gb_pop.rename(columns={"행정구역별(읍면동)": "시군구"})
         top_rows = pd.merge(top_rows, gb_pop_fixed, on="시군구", how="left")
         top_rows = top_rows.rename(columns={"총인구 (명)": "총인구수"})
 
         display_df = top_rows[["시군구", "화장실 수", "총인구수"]].copy()
         display_df.columns = ["시군구", "화장실 수", "인구 수"]
-
-        #  '...' 행을 문자열로 치환
         display_df.loc[display_df["시군구"] == "...", ["화장실 수", "인구 수"]] = "..."
-
 
         row_colors = []
         for city in display_df["시군구"]:
             if city == "영천시":
                 row_colors.append('#ffe0cc')  # 강조
             elif city == "...":
-                row_colors.append('#eeeeee')  # 생략 행
+                row_colors.append('#eeeeee')  # 생략
             else:
-                row_colors.append('#f9f9f9')  # 기본
+                row_colors.append('#f9f9f9')  # 일반
 
-        #  Plotly Table
-        fig = go.Figure(data=[go.Table(
+        table_fig = go.Figure(data=[go.Table(
             header=dict(
                 values=list(display_df.columns),
                 fill_color='#1f3b70',
@@ -758,13 +798,17 @@ def server(input, output, session):
                 height=28
             )
         )])
-
-        fig.update_layout(
+        table_fig.update_layout(
             title_text=f"영천시는 경북 공공화장실 수 {yc_rank}위 ({yc_toilet_count:,}개)",
-            margin=dict(l=20, r=20, t=60, b=20)
+            margin=dict(l=20, r=20, t=60, b=20),
+            height=400
         )
 
-        return HTML(fig.to_html(include_plotlyjs="cdn"))
+        # 4️ 두 plotly 시각화를 HTML로 합치기
+        treemap_html = treemap_fig.to_html(include_plotlyjs='cdn', full_html=False)
+        table_html = table_fig.to_html(include_plotlyjs=False, full_html=False)
+
+        return HTML(treemap_html + "<br><br>" + table_html)
 
     @output
     @render.ui
