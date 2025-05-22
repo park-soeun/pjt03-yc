@@ -69,3 +69,7 @@ h4 {
     color: #7f1d1d !important;
 }
 
+.bslib-card .card-header {
+  font-size: 18px !important;
+}
+

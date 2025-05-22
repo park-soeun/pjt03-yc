@@ -160,7 +160,7 @@ app_ui = ui.page_fluid(
         ui.tags.link(rel="stylesheet", href="styles.css")
     ),
     ui.page_navbar(
-            ui.nav_panel("💩 영천 vs 경북",
+            ui.nav_panel("🚽 영천 vs 경북",
             ui.layout_column_wrap(
                 width="1/1",
                 gap="20px",
@@ -186,7 +186,7 @@ app_ui = ui.page_fluid(
                 # 📊 SECTION 1: 절대 수 + 인구당 수
                 ui.layout_columns(
                     ui.card(
-                        ui.h4("① 시군구별 전체 화장실 수"),
+                        ui.card_header("① 시군구별 전체 화장실 수"),
                         output_widget("plot_total_count_"),
                         ui.card_footer(
                             "영천시 공공화장실은 115개로, 구미시(502개) 대비 약 5분의 1 수준"
@@ -194,7 +194,7 @@ app_ui = ui.page_fluid(
                         class_="shadow-md p-3 rounded-xl"
                     ),
                     ui.card(
-                        ui.h4("② 인구 1만명당 화장실 수"),
+                        ui.card_header("② 인구 1만명당 화장실 수"),
                         output_widget("plot_per_10k"),
                         ui.card_footer(
                             "영천시 1만명당 화장실 수는 11개로, 영양군(123개) 대비 10분의 1 수준"
@@ -203,7 +203,7 @@ app_ui = ui.page_fluid(
                     ),
                     
                     ui.card(
-                        ui.h4("③ 면적당 화장실 수 (개/㎢)"),
+                        ui.card_header("③ 면적당 화장실 수 (개/㎢)"),
                         output_widget("plot_density"),
                         ui.card_footer(
                             "영천시 면적당 화장실 수는 1.96개, 청송군(32.1개)과 16배 차이"
@@ -215,7 +215,7 @@ app_ui = ui.page_fluid(
                ui.layout_columns(
                     # 왼쪽: 증가 추이
                     ui.card(
-                        ui.h4("④ 화장실 설치 증가 추이 (2015~2023)"),
+                        ui.card_header("④ 화장실 설치 증가 추이 (2015~2023)"),
                         output_widget("plot_growth_comparison"),
                         ui.card_footer(
                             "최근 설치 수는 꾸준한 증가 추세, but 증가 폭은 크지 않음"
@@ -226,7 +226,7 @@ app_ui = ui.page_fluid(
                     
                     # 오른쪽: 도넛 4개
                     ui.card(
-                        ui.h4("⑤ 개방시간/주말 개방 유형 도넛 차트"),
+                        ui.card_header("⑤ 개방시간/주말 개방 유형 도넛 차트"),
                         ui.navset_tab(
                             ui.nav_panel(
                                 "개방시간",
@@ -243,13 +243,14 @@ app_ui = ui.page_fluid(
                                 )
                             )
                         ),
+                        ui.card_footer("야간·주말 이용 편의 높음"),
                         class_="shadow-md p-3 rounded-xl",
                         width=6
                     )
                 ),
                     ui.layout_columns(
                         ui.card(
-                            ui.h3("🤔 영천시 화장실 인프라, \n기대만큼 갖춰져 있을까?"),
+                            ui.h3("🤔 영천시 화장실 인프라, 얼마나 갖춰져 있을까?"),
                                 ui.p("주요 편의시설 설치 현황을 통해 영천시 공공화장실의 질적 수준을 진단합니다."),
                                 class_="bg-amber-100 text-gray-900 p-4 rounded-xl shadow-md"
                         ),
@@ -267,13 +268,15 @@ app_ui = ui.page_fluid(
 
                         ui.layout_columns(
                             ui.card(
-                                ui.h4("① 영천시 vs 경북 평균: 편의시설 설치율"),
+                                ui.card_header("① 영천시 vs 경북 평균: 편의시설 설치율"),
                                 output_widget("infra_comparison"),
+                                ui.card_footer("비상벨, CCTV, 어린이 화장실 등 주요 시설 설치율이 경북 평균과 비슷하거나 더 높음"),
                                 class_="shadow-md p-3 rounded-xl"
                             ),
                             ui.card(
-                                ui.h4("② 어린이 대변기 설치 여부"),
+                                ui.card_header("② 어린이 대변기 설치 여부"),
                                 output_widget("plot_child_fixture"),
+                                ui.card_footer("여아용은 경북 평균과 비슷, 남아용은 다소 낮아 균형적 확충 필요"),
                                 class_="shadow-md p-3 rounded-xl"
                             ),
                             
@@ -294,6 +297,7 @@ app_ui = ui.page_fluid(
                                         output_widget("plot_diaper")
                                     )
                                 ),
+                                ui.card_footer("CCTV는 설치율 최하위, 비상벨·기저귀교환대는 상위권 유지"),
                                 class_="shadow-md p-3 rounded-xl"
                             ) 
                             
@@ -303,34 +307,39 @@ app_ui = ui.page_fluid(
                     ui.nav_panel("🧻 읍면동별 화장실 현황",
                             ui.layout_columns(
                                 ui.card(
-                                    ui.input_select("emd", "읍면동 선택", choices=emd_list),
-                                ),
+                                    ui.card_header("읍면동 선택"),  # ✅ 카드 상단 제목
+                                    ui.input_select("emd", None, choices=emd_list),  # ✅ 제목은 없애고 본문에 드롭다운만
+                                    class_="shadow-md p-3 rounded-xl"
+                                )
                             ),
                             ui.layout_columns(
                                 ui.card(
+                                    ui.card_header("히트맵 기반 영천시 읍면동별 화장실 인프라 분석"),
                                     ui.output_ui("updated_map"),
                                 ),
                                 ui.card(
-                                        ui.navset_tab(
-                                            ui.nav_panel("읍면동별 화장실 수",
-                                                ui.output_plot("plot_count")
-                                            ),
-                                            ui.nav_panel("항목별 누적 비교",
-                                                ui.output_plot("plot_stacked")
-                                            )
+                                    ui.card_header("영천시 읍면동 화장실 수 & 인프라 통계"),
+                                    ui.navset_tab(
+                                        ui.nav_panel("읍면동별 화장실 수",
+                                            ui.output_plot("plot_count")
                                         ),
-                                        ui.output_ui("plot_summary"),
-                                        class_="shadow-md p-3 rounded-xl"
+                                        ui.nav_panel("항목별 누적 비교",
+                                            ui.output_plot("plot_stacked")
+                                        )
+                                    ),
+                                    ui.output_ui("plot_summary"),
+                                    class_="shadow-md p-3 rounded-xl"
                                     ),
                                 col_widths=(7, 5)
 
                             ),
                             ui.layout_columns(
                                 ui.card(
+                                    ui.card_header("경북 내 영천시의 종합 설치 순위"),
                                     ui.output_ui("plot_rank"),
                             ),
                                 ui.card(
-                                    ui.h4("영천시 내 공공화장실 취약 지역"),
+                                    ui.card_header("영천시 내 공공화장실 취약 지역"),
                                     ui.HTML("""
                                             <iframe 
                                                 src="./vul_loc.html" 
@@ -705,9 +714,7 @@ def server(input, output, session):
         )
         display_df = display_df.sort_values(["정렬키", "총합"], ascending=[True, False])
 
-        # 총합 순위 기준으로 인덱스 설정
-        display_df = display_df.set_index("__rank__")
-        display_df.index.name = "인덱스"
+
 
         # 하이라이트 함수 정의
         def _highlight(row):
@@ -718,7 +725,12 @@ def server(input, output, session):
             )
 
         html = (
-            display_df.drop(columns="정렬키").style.apply(_highlight, axis=1).to_html()
+            display_df.drop(columns=["정렬키", "__rank__"])
+            .reset_index(drop=True)
+            .style
+            .hide(axis="index")  # ✅ index 숨기기
+            .apply(_highlight, axis=1)
+            .to_html()
         )
         return HTML(html)
 
@@ -772,6 +784,7 @@ def server(input, output, session):
         display_df = top_rows[["시군구", "화장실 수", "총인구수"]].copy()
         display_df.columns = ["시군구", "화장실 수", "인구 수"]
         display_df.loc[display_df["시군구"] == "...", ["화장실 수", "인구 수"]] = "..."
+        display_df["인구 수"] = display_df["인구 수"].apply(lambda x: f"{int(x):,}" if pd.notnull(x) and x != "..." else x)
 
         row_colors = []
         for city in display_df["시군구"]:
@@ -813,59 +826,48 @@ def server(input, output, session):
     @output
     @render.ui
     def plot_vulnerable():
-        selected = input.emd()
+        import pandas as pd
+        import plotly.graph_objects as go
+        from htmltools import HTML
+
+        # 데이터 로딩 및 전처리
+        yc = pd.read_csv("./data/yc_df.csv", encoding="utf-8")
+        replace_map = {"문외동27": "문외동", "양항리": "임고면", "치산리": "신녕면"}
+        yc["읍면동명"] = yc["읍면동명"].replace(replace_map)
+
+        # 화장실 수가 적은 상위 10개 읍면동 추출
+        yc_2 = yc.groupby('읍면동명').size().reset_index(name='화장실수')
+        yc_2 = yc_2.sort_values('화장실수', ascending=True)
+        yc_22 = yc_2.head(10).reset_index(drop=True)
+
+        # 옵션 합계 계산
         features = ["비상벨", "CCTV", "기저귀교환대", "장애인화장실", "어린이대변기"]
-        temp = yc_df.copy()
-        temp["읍면동"] = temp["소재지도로명주소"].str.extract(r"영천시\s*([^\s]+)")
-        for f in features:
-            temp[f] = temp[f].map({"Y": 1, "N": 0, 1: 1, 0: 0}).fillna(0).astype(int)
-        agg_opt = temp.groupby("읍면동")[features].sum()
-        agg_count = temp.groupby("읍면동").size().to_frame("화장실수")
-        agg_df = pd.concat([agg_count, agg_opt], axis=1)
-        agg_df["총옵션수"] = agg_opt.sum(axis=1)
-        agg_df["평균옵션수"] = (agg_df["총옵션수"] / agg_df["화장실수"]).round(1)
-        agg_df = agg_df.reset_index()
+        yc_total = yc.groupby('읍면동명')[features].sum().reset_index()
+        yc_total['총합'] = yc_total[features].sum(axis=1)
 
-        all_emd = (
-            yc_pop[["읍면동별(1)", "인구 (명)"]]
-            .rename(columns={"읍면동별(1)": "읍면동", "인구 (명)": "총인구"})
-            .query("읍면동 != '읍면동별(1)' and 읍면동 != '합계'")
-            .assign(총인구=lambda df: pd.to_numeric(df["총인구"], errors="coerce"))[
-                "읍면동"
-            ]
-            .unique()
-        )
-        df_all = pd.DataFrame({"읍면동": all_emd})
-        merged = pd.merge(df_all, agg_df, on="읍면동", how="left").fillna(0)
+        # 병합 및 정렬
+        yc_final = pd.merge(yc_22, yc_total, on='읍면동명', how='left')
+        yc_sol = yc_final.sort_values(by=['화장실수', '총합'], ascending=[True, True]).reset_index(drop=True)
 
-        def calc_grade(row):
-            if row["화장실수"] == 0:
-                return "매우 취약"
-            elif row["화장실수"] <= 2 and row["총옵션수"] < 5:
-                return "취약"
-            elif row["화장실수"] >= 3 and row["총옵션수"] < 8:
-                return "보통"
-            else:
-                return "우수"
+        # 등급 부여 (상위 7개는 매우 취약, 하위 3개는 취약)
+        yc_sol = yc_sol.copy()
+        yc_sol["등급"] = ["매우 취약"] * 7 + ["취약"] * 3
 
-        merged["등급"] = merged.apply(calc_grade, axis=1)
+        # 색상 매핑
         등급색 = {
             "우수": "#d4f4dd",
             "보통": "#fff5cc",
             "취약": "#ffd9d9",
             "매우 취약": "#ff9999",
         }
-        filtered = merged[merged["등급"].isin(["취약", "매우 취약"])].copy()
-        filtered = filtered.sort_values("화장실수").reset_index(drop=True)
-        row_colors = [
-            "#ffe066" if emd == selected else 등급색.get(g, "#f0f0f0")
-            for emd, g in zip(filtered["읍면동"], filtered["등급"])
-        ]
+        row_colors = [등급색.get(g, "#f0f0f0") for g in yc_sol["등급"]]
+
+        # Plotly Table 시각화
         fig = go.Figure(
             data=[
                 go.Table(
                     header=dict(
-                        values=["읍면동", "화장실 수", "총 옵션 수", "등급"],
+                        values=["읍면동", "화장실 수", "총 편의시설 수", "등급"],
                         fill_color="#7f0000",
                         font=dict(color="white", size=13),
                         align="center",
@@ -873,10 +875,10 @@ def server(input, output, session):
                     ),
                     cells=dict(
                         values=[
-                            filtered["읍면동"],
-                            filtered["화장실수"].astype(int),
-                            filtered["총옵션수"].astype(int),
-                            filtered["등급"],
+                            yc_sol["읍면동명"],
+                            yc_sol["화장실수"].astype(int),
+                            yc_sol["총합"].astype(int),
+                            yc_sol["등급"],
                         ],
                         fill_color=[row_colors],
                         font=dict(color="black", size=12),
@@ -886,10 +888,15 @@ def server(input, output, session):
                 )
             ]
         )
+
         fig.update_layout(
+            title_text="영천시 공공화장실 취약지역",
             margin=dict(l=20, r=20, t=60, b=20),
+            height=460,
         )
+
         return HTML(fig.to_html(include_plotlyjs="cdn"))
+
 
 
     

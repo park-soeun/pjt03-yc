@@ -14,7 +14,6 @@ def plot_total_count(df1):
         df1,
         x='시군구명',
         y='화장실수',
-        title='경상북도 시군구별 공공화장실 수',
         labels={'시군구명': '시군구', '화장실수': '화장실 수'},
         color='색상',  # 색상 구분에 사용할 컬럼
         color_discrete_map='identity',  # HEX 색상 직접 적용
@@ -39,7 +38,6 @@ def plot_per_10k(df):
         df,
         x="시군구명",
         y="인구1만명당_화장실수",
-        title="경상북도 시군구별 인구 1만명당 공공화장실 수",
         labels={"시군구명": "시군구", "인구1만명당_화장실수": "1만명당 화장실 수"},
         color="색상",
         color_discrete_map="identity",
@@ -54,11 +52,11 @@ def plot_per_10k(df):
 
 
 def plot_density(df):
+    df["면적당_화장실수"] *= 1_000_000
     fig = px.bar(
         df,
         x="시군구명",
         y="면적당_화장실수",
-        title="경상북도 시군구별 면적당 공공화장실 수 (개/m²)",
         labels={"시군구명": "시군구", "면적당_화장실수": "면적당 화장실 수"},
         color="색상",
         color_discrete_map="identity",
@@ -67,9 +65,14 @@ def plot_density(df):
     fig.update_layout(
         xaxis_tickangle=-45,
         showlegend=False,
-        template="plotly_white"
+        template="plotly_white",
+        yaxis=dict(
+            tickformat=".0f",        # ✅ 정수로
+            exponentformat="none"   # ✅ 지수, 단위 축약 금지
+        )
     )
     return fig
+
 def plot_growth_rate(df):
     fig = px.line(
         df,
@@ -82,7 +85,7 @@ def plot_growth_rate(df):
     fig.update_layout(
         template="plotly_white",
         xaxis_title="설치연도",
-        yaxis_title="누적 설치 수"
+        yaxis_title="누적 설치 수",
     )
     return fig
 
@@ -121,7 +124,6 @@ def plot_growth_comparison(df):
             opacity=1 if region == "영천시" else 0.5
         ))
     fig.update_layout(
-        title="공공화장실 누적 설치 수 추이 (영천시 강조)",
         template="plotly_white",
         xaxis_title="설치연도",
         yaxis_title="누적 설치 수",
@@ -195,7 +197,6 @@ def plot_infra_comparison(compare_df):
         color='지역',
         barmode='group',
         text='설치율',
-        title='가족·사회배려 인프라 설치율 비교: 영천시 vs 경북 평균',
         color_discrete_map={'영천시': '#1f77b4', '경북 평균': '#cccccc'}
     )
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
@@ -283,7 +284,6 @@ def plot_emergency_bell(df: pd.DataFrame) -> go.Figure:
     ))
 
     fig.update_layout(
-        title="경상북도 시군구별 비상벨 설치율",
         xaxis_title="시군구",
         yaxis_title="설치율",
         template="plotly_white",
@@ -308,7 +308,6 @@ def plot_cctv(df: pd.DataFrame) -> go.Figure:
     ))
 
     fig.update_layout(
-        title="경상북도 시군구별 CCTV 설치율",
         xaxis_title="시군구",
         yaxis_title="설치율",
         template="plotly_white",
@@ -333,7 +332,6 @@ def plot_diaper(df: pd.DataFrame) -> go.Figure:
     ))
 
     fig.update_layout(
-        title="경상북도 시군구별 기저귀 교환대 설치율",
         xaxis_title="시군구",
         yaxis_title="설치율",
         template="plotly_white",
@@ -384,7 +382,6 @@ def plot_child_fixture_radar(yeongcheon, gyeongbuk_avg):
         line=dict(color='gray')
     ))
     fig.update_layout(
-        title='영천시 vs 경북 평균 (어린이용 기기 설치 평균)',
         polar=dict(radialaxis=dict(visible=True, range=[0, max(yeongcheon.max(), gyeongbuk_avg.max()) * 1.1])),
         showlegend=True,
         template='plotly_white'
