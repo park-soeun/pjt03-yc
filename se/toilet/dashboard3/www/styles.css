@@ -8,6 +8,31 @@ body {
     background-color: #f0f4f7;
     color: #3e4e3e;
     letter-spacing: 0.3px;
+    
+}
+
+.container-fluid {
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar-brand {
+  display: inline;
+  margin: 30px;
+  font-size: 40px;      /* 글자 크기 */
+  font-weight: 700;       /* 글자 굵기: 700은 bold */
+  font-family: "Gowun Dodum", sans-serif;  /* 원하는 폰트 지정 (선택사항) */
+}
+
+.navbar-nav .nav-link {
+  font-size: 20px;
+  /* font-weight: 600; */
+}
+
+.tab-content {
+  margin-left: 30px;
+  margin-right: 30px;
+
 }
 
 h3 {
